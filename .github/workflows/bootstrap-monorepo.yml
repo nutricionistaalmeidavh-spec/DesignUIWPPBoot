@@ -1,6 +1,7 @@
 name: Bootstrap monorepo phases 0-8
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - integration/phases-0-8
