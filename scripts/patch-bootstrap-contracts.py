@@ -3,6 +3,7 @@ from pathlib import Path
 path = Path("scripts/bootstrap-monorepo.sh")
 text = path.read_text()
 
+text = text.replace("PANEL_SHA=\"f8ef396c0dca73e89618fa79922b1633577ecb90\"", "PANEL_SHA=\"03ac11773d9bc2c2d541dbdda8cf33d0db6bad76\"")
 text = text.replace("'workspace:*'", "'*'")
 
 old = """const source = new URL('../apps/server/src/management/interface/dto/', import.meta.url);\nconst target = new URL('../packages/contracts/src/', import.meta.url);\n\nawait rm(target, { recursive: true, force: true });\nawait mkdir(target, { recursive: true });\n\nconst entries = (await readdir(source, { withFileTypes: true }))\n  .filter((entry) => entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts'))\n  .sort((a, b) => a.name.localeCompare(b.name));\n\nfor (const entry of entries) {\n  await cp(new URL(entry.name, source), new URL(entry.name, target));\n}\n\nconsole.log(`Synced ${entries.length} management contract files into ${basename(target.pathname) || 'contracts'}.`);\n"""
