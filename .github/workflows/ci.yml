@@ -1,0 +1,34 @@
+name: Monorepo CI
+
+on:
+  push:
+    branches:
+      - main
+      - integration/phases-0-8
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Verify shared contracts are synchronized
+        run: npm run check:contracts
+
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
