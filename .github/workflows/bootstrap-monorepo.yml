@@ -1,0 +1,41 @@
+name: Bootstrap monorepo phases 0-8
+
+on:
+  push:
+    branches:
+      - integration/phases-0-8
+    paths:
+      - scripts/bootstrap-monorepo.sh
+      - .github/workflows/bootstrap-monorepo.yml
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/phases-0-8
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Assemble and verify monorepo
+        run: bash scripts/bootstrap-monorepo.sh
+
+      - name: Commit migrated snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No bootstrap changes to commit."
+          else
+            git commit -m "chore: migrate product into monorepo through UX audit"
+            git push origin HEAD:integration/phases-0-8
+          fi
