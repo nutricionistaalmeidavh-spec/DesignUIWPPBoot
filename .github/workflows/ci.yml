@@ -5,9 +5,14 @@ on:
     branches:
       - main
       - integration/phases-0-8
+      - 'architecture/**'
+      - 'ui/**'
   pull_request:
     branches:
       - main
+      - integration/phases-0-8
+      - 'architecture/**'
+      - 'ui/**'
 
 permissions:
   contents: read
