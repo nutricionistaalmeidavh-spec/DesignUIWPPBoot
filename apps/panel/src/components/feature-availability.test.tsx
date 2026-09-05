@@ -3,18 +3,19 @@ import { describe, expect, it } from "vitest";
 import { FeatureAvailability } from "./FeatureAvailability";
 
 describe("FeatureAvailability", () => {
-  it("bloqueia recurso sem backend fora do preview", () => {
+  it("bloqueia recurso indisponível sem explicar detalhes de infraestrutura", () => {
     render(
-      <FeatureAvailability feature="Pipeline" supported={false} preview={false}>
+      <FeatureAvailability feature="Pipeline" supported={false}>
         <button>ação falsa</button>
       </FeatureAvailability>,
     );
 
-    expect(screen.getByText("Pipeline está pronta para integração")).toBeInTheDocument();
+    expect(screen.getByText("Pipeline indisponível")).toBeInTheDocument();
+    expect(screen.queryByText(/backend|capabilit/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "ação falsa" })).not.toBeInTheDocument();
   });
 
-  it("permite visualizar fixtures quando preview está ativo", () => {
+  it("permite desenvolvimento local sem expor selo técnico", () => {
     render(
       <FeatureAvailability feature="Pipeline" supported={false} preview>
         <button>abrir pipeline</button>
@@ -22,6 +23,6 @@ describe("FeatureAvailability", () => {
     );
 
     expect(screen.getByRole("button", { name: "abrir pipeline" })).toBeInTheDocument();
-    expect(screen.getByText("Preview com dados de desenvolvimento")).toBeInTheDocument();
+    expect(screen.queryByText(/preview|desenvolvimento/i)).not.toBeInTheDocument();
   });
 });
