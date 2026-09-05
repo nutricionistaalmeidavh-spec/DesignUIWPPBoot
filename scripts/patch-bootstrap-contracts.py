@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# One-time migration patch: aligns the pinned server and panel snapshots before verification.
 path = Path("scripts/bootstrap-monorepo.sh")
 text = path.read_text()
 
