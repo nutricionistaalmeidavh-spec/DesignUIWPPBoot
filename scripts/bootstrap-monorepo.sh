@@ -4,7 +4,7 @@ set -euo pipefail
 SERVER_REPO="https://github.com/Marcoslima016/wpp_prospector_bot.git"
 SERVER_SHA="464e5dcb1cef198721e1db3c46cc48500ae02d0d"
 PANEL_REPO="https://github.com/Marcoslima016/wpp_prospector_bot_panel.git"
-PANEL_SHA="f8ef396c0dca73e89618fa79922b1633577ecb90"
+PANEL_SHA="03ac11773d9bc2c2d541dbdda8cf33d0db6bad76"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -40,6 +40,12 @@ COMMON_EXCLUDES=(
 rsync -a "${COMMON_EXCLUDES[@]}" "$TMP_DIR/server/" apps/server/
 rsync -a "${COMMON_EXCLUDES[@]}" "$TMP_DIR/panel/" apps/panel/
 
+# The pinned source snapshot changed the canonical Essencial price to R$ 200,
+# but one knowledge-loader assertion still expected the previous R$ 300 value.
+# Keep product behavior untouched and align only that stale assertion with pricing.md.
+sed -i 's/expect(bundle.pinnedContext).toContain("R$ 300");/expect(bundle.pinnedContext).toContain("R$ 200");/' \
+  apps/server/src/conversation-engine/infrastructure/knowledge/knowledge-loader.test.ts
+
 if [[ ! -d apps/server/openspec ]]; then
   echo "Server OpenSpec tree was not found" >&2
   exit 1
@@ -59,10 +65,14 @@ import { cp, mkdir, readdir, rm } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 
 const source = new URL('../apps/server/src/management/interface/dto/', import.meta.url);
-const target = new URL('../packages/contracts/src/', import.meta.url);
+const packageRoot = new URL('../packages/contracts/src/', import.meta.url);
+const target = new URL('../packages/contracts/src/management/interface/dto/', import.meta.url);
+const domainSource = new URL('../apps/server/src/conversation-engine/domain/', import.meta.url);
+const domainTarget = new URL('../packages/contracts/src/conversation-engine/domain/', import.meta.url);
 
-await rm(target, { recursive: true, force: true });
+await rm(packageRoot, { recursive: true, force: true });
 await mkdir(target, { recursive: true });
+await mkdir(domainTarget, { recursive: true });
 
 const entries = (await readdir(source, { withFileTypes: true }))
   .filter((entry) => entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts'))
@@ -72,7 +82,12 @@ for (const entry of entries) {
   await cp(new URL(entry.name, source), new URL(entry.name, target));
 }
 
-console.log(`Synced ${entries.length} management contract files into ${basename(target.pathname) || 'contracts'}.`);
+const domainFiles = ['lead-intent.ts', 'lead-qualification.ts', 'product-catalog.ts'];
+for (const name of domainFiles) {
+  await cp(new URL(name, domainSource), new URL(name, domainTarget));
+}
+
+console.log(`Synced ${entries.length} management contract files and ${domainFiles.length} shared domain files.`);
 EOF
 
 cat > packages/contracts/package.json <<'EOF'
@@ -81,10 +96,10 @@ cat > packages/contracts/package.json <<'EOF'
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./src/management/interface/dto/index.ts",
+  "types": "./src/management/interface/dto/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/management/interface/dto/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit"
@@ -127,7 +142,7 @@ const panelPath = 'apps/panel/package.json';
 const panel = JSON.parse(fs.readFileSync(panelPath, 'utf8'));
 panel.dependencies ??= {};
 delete panel.dependencies.wpp_prospector_bot_server;
-panel.dependencies['@wpp/contracts'] = 'workspace:*';
+panel.dependencies['@wpp/contracts'] = '*';
 fs.writeFileSync(panelPath, JSON.stringify(panel, null, 2) + '\n');
 
 const serverPath = 'apps/server/package.json';
