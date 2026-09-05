@@ -60,3 +60,6 @@ const httpRepository = new HttpCrmRepository();
 export function getCrmRepository(source: "http" | "mock"): CrmRepository {
   return source === "http" ? httpRepository : mockRepository;
 }
+
+/** Compatibilidade temporária para telas de analytics ainda restritas ao preview local. */
+export const crmRepository: CrmRepository = mockRepository;
