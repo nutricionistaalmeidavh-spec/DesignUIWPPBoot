@@ -1,5 +1,9 @@
 import { useMemo, useState } from "react";
+import { FileUp, Search, Send } from "lucide-react";
 import { PROSPECTING_STATES } from "@/api/contracts";
+import { PageHeader } from "@/components/PageHeader";
+import { EmptyState, ErrorState } from "@/components/SectionState";
+import { StatusPill } from "@/components/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,18 +28,9 @@ export function LeadsRoute() {
   const { prospecting } = useActionAvailability();
   const query = useLeadList(filters);
   const resetLead = useResetLead();
-
   const items = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
-
-  // Mantém a seleção coerente com o que ainda está listado e selecionável.
-  const selectablePhones = useMemo(
-    () => new Set(items.filter((l) => isSelectable(l.prospectingState)).map((l) => l.phone)),
-    [items],
-  );
-  const effectiveSelected = useMemo(
-    () => new Set([...selected].filter((p) => selectablePhones.has(p))),
-    [selected, selectablePhones],
-  );
+  const selectablePhones = useMemo(() => new Set(items.filter((lead) => isSelectable(lead.prospectingState)).map((lead) => lead.phone)), [items]);
+  const effectiveSelected = useMemo(() => new Set([...selected].filter((phone) => selectablePhones.has(phone))), [selected, selectablePhones]);
 
   function patch(next: Partial<LeadFilters>) {
     setFilters((current) => {
@@ -58,185 +53,71 @@ export function LeadsRoute() {
 
   function toggleAllSelectable() {
     setSelected((current) => {
-      const allChecked =
-        selectablePhones.size > 0 && [...selectablePhones].every((p) => current.has(p));
+      const allChecked = selectablePhones.size > 0 && [...selectablePhones].every((phone) => current.has(phone));
       return allChecked ? new Set() : new Set(selectablePhones);
     });
   }
 
-  const showEmpty = !query.isLoading && !query.isError && items.length === 0;
   const selectedPhones = [...effectiveSelected];
+  const showEmpty = !query.isLoading && !query.isError && items.length === 0;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Leads</h1>
-        <Button size="sm" onClick={() => setImportOpen(true)}>
-          Importar planilha
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        eyebrow="CRM"
+        title="Leads"
+        description="Base operacional para importação, filtros e prospecção. Os dados desta tela já vêm do backend real."
+        actions={<Button onClick={() => setImportOpen(true)}><FileUp className="h-4 w-4" />Importar planilha</Button>}
+      />
 
-      <div className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="space-y-1">
+      <div className="surface-panel grid gap-4 p-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="space-y-1.5">
           <Label htmlFor="f-state">Estado</Label>
-          <Select
-            id="f-state"
-            value={filters.state ?? ""}
-            onChange={(event) => patch({ state: event.target.value || undefined })}
-          >
+          <Select id="f-state" value={filters.state ?? ""} onChange={(event) => patch({ state: event.target.value || undefined })}>
             <option value="">Todos</option>
-            {PROSPECTING_STATES.map((value) => (
-              <option key={value} value={value}>
-                {PROSPECTING_STATE_LABEL[value] ?? value}
-              </option>
-            ))}
+            {PROSPECTING_STATES.map((value) => <option key={value} value={value}>{PROSPECTING_STATE_LABEL[value] ?? value}</option>)}
           </Select>
         </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="f-phone">Telefone contém</Label>
-          <Input
-            id="f-phone"
-            value={filters.phone ?? ""}
-            onChange={(event) => patch({ phone: event.target.value })}
-            placeholder="5516…"
-          />
+        <div className="space-y-1.5">
+          <Label htmlFor="f-phone">Telefone</Label>
+          <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input id="f-phone" className="pl-9" value={filters.phone ?? ""} onChange={(event) => patch({ phone: event.target.value })} placeholder="5516…" /></div>
         </div>
-
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <Label htmlFor="f-segment">Segmento</Label>
-          <Input
-            id="f-segment"
-            value={filters.segment ?? ""}
-            onChange={(event) => patch({ segment: event.target.value })}
-            placeholder="construção"
-          />
+          <Input id="f-segment" value={filters.segment ?? ""} onChange={(event) => patch({ segment: event.target.value })} placeholder="construção" />
         </div>
       </div>
 
       {selectedPhones.length > 0 ? (
-        <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-2 text-sm">
-          <span>{selectedPhones.length} selecionado(s)</span>
-          <div className="flex gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
-              Limpar
-            </Button>
-            {prospecting ? (
-              <Button size="sm" onClick={() => setProspectOpen(true)}>
-                Disparar mensagem de abertura ({selectedPhones.length})
-              </Button>
-            ) : (
-              <span className="text-xs text-muted-foreground">
-                disparo indisponível neste servidor
-              </span>
-            )}
+        <div className="sticky top-3 z-10 flex flex-col gap-3 rounded-xl border bg-card/95 px-4 py-3 shadow-md backdrop-blur sm:flex-row sm:items-center sm:justify-between lg:top-4">
+          <div className="flex items-center gap-2"><StatusPill tone="info">{selectedPhones.length} selecionado(s)</StatusPill><span className="text-xs text-muted-foreground">prontos para ação em lote</span></div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Limpar</Button>
+            {prospecting ? <Button size="sm" onClick={() => setProspectOpen(true)}><Send className="h-4 w-4" />Disparar abertura ({selectedPhones.length})</Button> : <StatusPill>disparo indisponível</StatusPill>}
           </div>
         </div>
       ) : null}
 
-      {query.isError ? (
-        <div className="rounded-lg border border-destructive/40 p-6 text-sm">
-          <p className="text-destructive">Erro ao carregar os leads.</p>
-          <Button variant="outline" size="sm" className="mt-2" onClick={() => query.refetch()}>
-            Tentar novamente
-          </Button>
-        </div>
-      ) : null}
-
-      {query.isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <Skeleton key={index} className="h-10 w-full" />
-          ))}
-        </div>
-      ) : null}
-
-      {showEmpty ? (
-        <div className="rounded-lg border p-8 text-center text-sm text-muted-foreground">
-          <p>Nenhum lead por aqui ainda.</p>
-          <p className="mt-1">
-            Importe uma planilha para começar a prospectar.
-          </p>
-          <Button size="sm" className="mt-3" onClick={() => setImportOpen(true)}>
-            Importar planilha
-          </Button>
-        </div>
-      ) : null}
+      {query.isError ? <ErrorState onRetry={() => query.refetch()} description="Erro ao carregar os leads." /> : null}
+      {query.isLoading ? <div className="space-y-2">{Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="h-11" />)}</div> : null}
+      {showEmpty ? <EmptyState title="Nenhum lead por aqui ainda" description="Importe uma planilha para iniciar sua base de prospecção." action={<Button size="sm" onClick={() => setImportOpen(true)}>Importar planilha</Button>} /> : null}
 
       {!query.isLoading && !query.isError && items.length > 0 ? (
-        <>
-          <LeadsTable
-            items={items}
-            selected={effectiveSelected}
-            onToggle={toggle}
-            onToggleAllSelectable={toggleAllSelectable}
-            onRequestReset={setResetPhone}
-            prospectingAvailable={prospecting}
-          />
-          <div className="flex justify-center">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!query.hasNextPage || query.isFetchingNextPage}
-              onClick={() => query.fetchNextPage()}
-            >
-              {query.isFetchingNextPage
-                ? "Carregando…"
-                : query.hasNextPage
-                  ? "Carregar próxima página"
-                  : "Fim da lista"}
-            </Button>
-          </div>
-        </>
+        <div className="space-y-4">
+          <div className="surface-panel overflow-x-auto"><LeadsTable items={items} selected={effectiveSelected} onToggle={toggle} onToggleAllSelectable={toggleAllSelectable} onRequestReset={setResetPhone} prospectingAvailable={prospecting} /></div>
+          <div className="flex justify-center"><Button variant="outline" size="sm" disabled={!query.hasNextPage || query.isFetchingNextPage} onClick={() => query.fetchNextPage()}>{query.isFetchingNextPage ? "Carregando…" : query.hasNextPage ? "Carregar próxima página" : "Fim da lista"}</Button></div>
+        </div>
       ) : null}
 
       <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
+      <ProspectConfirmDialog open={prospectOpen} phones={selectedPhones} onClose={() => setProspectOpen(false)} onCompleted={() => setSelected(new Set())} />
 
-      <ProspectConfirmDialog
-        open={prospectOpen}
-        phones={selectedPhones}
-        onClose={() => setProspectOpen(false)}
-        onCompleted={() => setSelected(new Set())}
-      />
-
-      <Dialog
-        open={resetPhone !== null}
-        onClose={() => {
-          setResetPhone(null);
-          resetLead.reset();
-        }}
-        title="Resetar prospecção"
-      >
-        <p>
-          O lead <strong>{resetPhone}</strong> volta para <em>pendente</em> e fica selecionável
-          para um novo disparo. A conversa e o histórico são mantidos.
-        </p>
-        {resetLead.isError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {resetLead.error instanceof Error ? resetLead.error.message : "Falha ao resetar."}
-          </p>
-        ) : null}
+      <Dialog open={resetPhone !== null} onClose={() => { setResetPhone(null); resetLead.reset(); }} title="Resetar prospecção">
+        <p>O lead <strong>{resetPhone}</strong> volta para <em>pendente</em> e fica selecionável para um novo disparo. A conversa e o histórico são mantidos.</p>
+        {resetLead.isError ? <p role="alert" className="text-sm text-destructive">{resetLead.error instanceof Error ? resetLead.error.message : "Falha ao resetar."}</p> : null}
         <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setResetPhone(null);
-              resetLead.reset();
-            }}
-          >
-            Cancelar
-          </Button>
-          <Button
-            size="sm"
-            disabled={resetLead.isPending}
-            onClick={() => {
-              if (!resetPhone) return;
-              resetLead.mutate(resetPhone, { onSuccess: () => setResetPhone(null) });
-            }}
-          >
-            {resetLead.isPending ? "Resetando…" : "Resetar"}
-          </Button>
+          <Button variant="outline" size="sm" onClick={() => { setResetPhone(null); resetLead.reset(); }}>Cancelar</Button>
+          <Button size="sm" disabled={resetLead.isPending} onClick={() => { if (!resetPhone) return; resetLead.mutate(resetPhone, { onSuccess: () => setResetPhone(null) }); }}>{resetLead.isPending ? "Resetando…" : "Resetar"}</Button>
         </div>
       </Dialog>
     </div>

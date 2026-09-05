@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, FileSpreadsheet, Megaphone, UsersRound } from "lucide-react";
+import { ArrowRight, FileSpreadsheet, UsersRound } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { FeatureAvailability } from "@/components/FeatureAvailability";
 import { PageHeader } from "@/components/PageHeader";

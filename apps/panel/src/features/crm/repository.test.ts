@@ -6,17 +6,24 @@ describe("MockCrmRepository", () => {
     const repository = new MockCrmRepository();
     const opportunities = await repository.listOpportunities();
     expect(opportunities.length).toBeGreaterThan(0);
+    const first = opportunities[0];
+    expect(first).toBeDefined();
+    if (!first) throw new Error("fixture sem oportunidade");
 
-    const found = await repository.getOpportunity(opportunities[0].id);
-    expect(found?.companyId).toBe(opportunities[0].companyId);
-    expect(found?.leadPhone).toBe(opportunities[0].leadPhone);
+    const found = await repository.getOpportunity(first.id);
+    expect(found?.companyId).toBe(first.companyId);
+    expect(found?.leadPhone).toBe(first.leadPhone);
   });
 
   it("devolve cópias e não compartilha mutação entre leituras", async () => {
     const repository = new MockCrmRepository();
-    const first = await repository.listOpportunities();
-    first[0].companyName = "mutado";
-    const second = await repository.listOpportunities();
-    expect(second[0].companyName).not.toBe("mutado");
+    const firstRead = await repository.listOpportunities();
+    const first = firstRead[0];
+    expect(first).toBeDefined();
+    if (!first) throw new Error("fixture sem oportunidade");
+    first.companyName = "mutado";
+
+    const secondRead = await repository.listOpportunities();
+    expect(secondRead[0]?.companyName).not.toBe("mutado");
   });
 });

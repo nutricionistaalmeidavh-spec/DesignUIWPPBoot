@@ -3,7 +3,7 @@ import { BarChart3, CircleDollarSign, TrendingUp } from "lucide-react";
 import { FeatureAvailability } from "@/components/FeatureAvailability";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusPill } from "@/components/StatusPill";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { crmRepository } from "@/features/crm/repository";
 import { isCrmPreviewEnabled } from "@/features/crm/preview";
