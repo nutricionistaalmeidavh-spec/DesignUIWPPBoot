@@ -8,17 +8,34 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/format";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { ConversationDetailPanel } from "@/features/conversations/ConversationDetailRoute";
 import { useConversationList, type ConversationFilters } from "@/features/conversations/useConversationList";
 
 export function InboxRoute({ awaitingHuman = false }: { awaitingHuman?: boolean }) {
   const navigate = useNavigate();
   const [phone, setPhone] = useState("");
+  const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
+  const debouncedPhone = useDebouncedValue(phone, 300);
   const filters = useMemo<ConversationFilters>(() => ({
     state: awaitingHuman ? "awaitingHuman" : undefined,
-    phone: phone || undefined,
-  }), [awaitingHuman, phone]);
+    phone: debouncedPhone || undefined,
+  }), [awaitingHuman, debouncedPhone]);
   const query = useConversationList(filters);
   const items = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
+
+  function openConversation(leadPhone: string) {
+    const desktop =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia("(min-width: 1024px)").matches
+        : window.innerWidth >= 1024;
+
+    if (desktop) {
+      setSelectedPhone(leadPhone);
+      return;
+    }
+    navigate(`/conversations/${encodeURIComponent(leadPhone)}`);
+  }
 
   return (
     <div className="space-y-6">
@@ -44,8 +61,8 @@ export function InboxRoute({ awaitingHuman = false }: { awaitingHuman?: boolean 
             {items.map((item) => (
               <button
                 key={item.leadPhone}
-                className="flex w-full items-start gap-3 border-b px-4 py-3.5 text-left transition-colors last:border-b-0 hover:bg-muted/45"
-                onClick={() => navigate(`/conversations/${encodeURIComponent(item.leadPhone)}`)}
+                className={`flex w-full items-start gap-3 border-b px-4 py-3.5 text-left transition-colors last:border-b-0 hover:bg-muted/45 ${selectedPhone === item.leadPhone ? "bg-muted/45" : ""}`}
+                onClick={() => openConversation(item.leadPhone)}
               >
                 <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">
                   {item.leadPhone.slice(-2)}
@@ -59,7 +76,7 @@ export function InboxRoute({ awaitingHuman = false }: { awaitingHuman?: boolean 
                     <StatusPill tone={item.state === "awaitingHuman" ? "warning" : item.state === "active" ? "success" : "neutral"}>
                       {item.state === "awaitingHuman" ? "aguardando humano" : item.state === "active" ? "bot ativo" : "encerrada"}
                     </StatusPill>
-                    {item.hasPendingInbound ? <StatusPill tone="info">inbound pendente</StatusPill> : null}
+                    {item.hasPendingInbound ? <StatusPill tone="info">mensagem recebida</StatusPill> : null}
                   </div>
                   <p className="mt-1.5 truncate text-xs text-muted-foreground">{item.leadIntent} · {item.leadQualification ?? "sem qualificação"}</p>
                 </div>
@@ -75,14 +92,22 @@ export function InboxRoute({ awaitingHuman = false }: { awaitingHuman?: boolean 
           ) : null}
         </section>
 
-        <section className="hidden items-center justify-center bg-muted/15 p-10 lg:flex">
-          <div className="max-w-sm text-center">
-            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent text-accent-foreground">
-              {awaitingHuman ? <UserRoundCheck className="h-5 w-5" /> : <MessageCircleMore className="h-5 w-5" />}
-            </span>
-            <h2 className="mt-4 font-semibold">Selecione uma conversa</h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">O detalhe abre com histórico, qualificação e ações de handoff, retomada e mensagem manual já existentes.</p>
-          </div>
+        <section className="hidden bg-muted/15 lg:block">
+          {selectedPhone ? (
+            <div className="app-scrollbar max-h-[620px] overflow-y-auto p-6">
+              <ConversationDetailPanel leadPhone={selectedPhone} />
+            </div>
+          ) : (
+            <div className="flex min-h-[620px] items-center justify-center p-10">
+              <div className="max-w-sm text-center">
+                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                  {awaitingHuman ? <UserRoundCheck className="h-5 w-5" /> : <MessageCircleMore className="h-5 w-5" />}
+                </span>
+                <h2 className="mt-4 font-semibold">Selecione uma conversa</h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">O histórico e as ações da conversa aparecem aqui.</p>
+              </div>
+            </div>
+          )}
         </section>
       </div>
     </div>
