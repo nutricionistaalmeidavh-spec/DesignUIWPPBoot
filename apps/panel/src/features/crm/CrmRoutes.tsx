@@ -9,9 +9,22 @@ import { StatusPill } from "@/components/StatusPill";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { crmRepository } from "./repository";
-import { isCrmPreviewEnabled } from "./preview";
+import { getCrmRepository } from "./repository";
+import { useCrmRuntime, type CrmModules } from "./runtime";
 import { OPPORTUNITY_STAGES, OPPORTUNITY_STAGE_LABEL, type Opportunity, type OpportunityStage } from "./types";
+
+function useCrmModule(module: keyof CrmModules) {
+  const runtime = useCrmRuntime();
+  const repository = useMemo(
+    () => getCrmRepository(runtime.source === "http" ? "http" : "mock"),
+    [runtime.source],
+  );
+  return {
+    repository,
+    source: runtime.source,
+    supported: runtime.source !== "disabled" && runtime.modules[module],
+  };
+}
 
 function formatBrl(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(value);
@@ -39,13 +52,13 @@ function OpportunityCard({ opportunity }: { opportunity: Opportunity }) {
 }
 
 export function PipelineRoute() {
-  const preview = isCrmPreviewEnabled();
-  const query = useQuery({ queryKey: ["crm-preview", "opportunities"], queryFn: () => crmRepository.listOpportunities(), enabled: preview, staleTime: Infinity });
+  const crm = useCrmModule("opportunities");
+  const query = useQuery({ queryKey: ["crm", crm.source, "opportunities"], queryFn: () => crm.repository.listOpportunities(), enabled: crm.supported, staleTime: Infinity });
 
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="CRM" title="Pipeline" description="Acompanhe oportunidades por etapa do processo comercial." />
-      <FeatureAvailability feature="Pipeline" supported={false} preview={preview}>
+      <FeatureAvailability feature="Pipeline" supported={crm.supported}>
         {query.isLoading ? <Skeleton className="h-96" /> : (
           <div className="app-scrollbar overflow-x-auto pb-2">
             <div className="flex min-w-max gap-3">
@@ -70,9 +83,9 @@ export function PipelineRoute() {
 }
 
 export function OpportunitiesRoute() {
-  const preview = isCrmPreviewEnabled();
+  const crm = useCrmModule("opportunities");
   const [search, setSearch] = useState("");
-  const query = useQuery({ queryKey: ["crm-preview", "opportunities"], queryFn: () => crmRepository.listOpportunities(), enabled: preview, staleTime: Infinity });
+  const query = useQuery({ queryKey: ["crm", crm.source, "opportunities"], queryFn: () => crm.repository.listOpportunities(), enabled: crm.supported, staleTime: Infinity });
   const items = useMemo(() => {
     const needle = search.trim().toLowerCase();
     if (!needle) return query.data ?? [];
@@ -81,10 +94,10 @@ export function OpportunitiesRoute() {
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="CRM" title="Oportunidades" description="Lista comercial pronta para receber o contrato real de oportunidades." />
-      <FeatureAvailability feature="Oportunidades" supported={false} preview={preview}>
+      <PageHeader eyebrow="CRM" title="Oportunidades" description="Acompanhe e encontre oportunidades comerciais." />
+      <FeatureAvailability feature="Oportunidades" supported={crm.supported}>
         <div className="surface-panel p-3 sm:p-4"><div className="relative max-w-md"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input className="pl-9" placeholder="Buscar empresa, lead ou oportunidade" value={search} onChange={(event) => setSearch(event.target.value)} /></div></div>
-        {query.isLoading ? <Skeleton className="h-72" /> : items.length === 0 ? <EmptyState title="Nenhuma oportunidade" description="A busca não encontrou oportunidades no conjunto de preview." /> : (
+        {query.isLoading ? <Skeleton className="h-72" /> : items.length === 0 ? <EmptyState title="Nenhuma oportunidade" description="A busca não encontrou oportunidades." /> : (
           <div className="surface-panel divide-y overflow-hidden">
             {items.map((item) => (
               <Link key={item.id} to={`/crm/opportunities/${item.id}`} className="flex flex-col gap-3 p-4 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center">
@@ -100,13 +113,13 @@ export function OpportunitiesRoute() {
 }
 
 export function OpportunityDetailRoute() {
-  const preview = isCrmPreviewEnabled();
+  const crm = useCrmModule("opportunities");
   const { id = "" } = useParams();
-  const query = useQuery({ queryKey: ["crm-preview", "opportunity", id], queryFn: () => crmRepository.getOpportunity(id), enabled: preview && Boolean(id), staleTime: Infinity });
+  const query = useQuery({ queryKey: ["crm", crm.source, "opportunity", id], queryFn: () => crm.repository.getOpportunity(id), enabled: crm.supported && Boolean(id), staleTime: Infinity });
 
   return (
-    <FeatureAvailability feature="Detalhe da oportunidade" supported={false} preview={preview}>
-      {query.isLoading ? <Skeleton className="h-96" /> : !query.data ? <EmptyState title="Oportunidade não encontrada" description="O registro não existe no conjunto de preview." action={<Link to="/crm/opportunities" className="text-sm font-medium text-primary">Voltar para oportunidades</Link>} /> : <OpportunityDetail opportunity={query.data} />}
+    <FeatureAvailability feature="Detalhe da oportunidade" supported={crm.supported}>
+      {query.isLoading ? <Skeleton className="h-96" /> : !query.data ? <EmptyState title="Oportunidade não encontrada" description="Não foi possível encontrar esta oportunidade." action={<Link to="/crm/opportunities" className="text-sm font-medium text-primary">Voltar para oportunidades</Link>} /> : <OpportunityDetail opportunity={query.data} />}
     </FeatureAvailability>
   );
 }
@@ -134,12 +147,12 @@ function DetailRow({ icon: Icon, label, value }: { icon: typeof Building2; label
 }
 
 export function CompaniesRoute() {
-  const preview = isCrmPreviewEnabled();
-  const query = useQuery({ queryKey: ["crm-preview", "companies"], queryFn: () => crmRepository.listCompanies(), enabled: preview, staleTime: Infinity });
+  const crm = useCrmModule("companies");
+  const query = useQuery({ queryKey: ["crm", crm.source, "companies"], queryFn: () => crm.repository.listCompanies(), enabled: crm.supported, staleTime: Infinity });
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="CRM" title="Empresas" description="Contas relacionadas aos leads e às oportunidades." />
-      <FeatureAvailability feature="Empresas" supported={false} preview={preview}>
+      <FeatureAvailability feature="Empresas" supported={crm.supported}>
         {query.isLoading ? <Skeleton className="h-72" /> : <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{(query.data ?? []).map((company) => <Card key={company.id} className="shadow-sm"><CardContent className="p-5"><div className="flex items-start justify-between gap-3"><div><p className="font-semibold">{company.name}</p><p className="mt-1 text-sm text-muted-foreground">{company.segment} · {company.city}</p></div><Building2 className="h-5 w-5 text-muted-foreground" /></div><div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs"><div className="rounded-lg bg-muted/50 p-2"><p className="font-semibold">{company.leadCount}</p><p className="text-muted-foreground">leads</p></div><div className="rounded-lg bg-muted/50 p-2"><p className="font-semibold">{company.opportunityCount}</p><p className="text-muted-foreground">opps</p></div><div className="rounded-lg bg-muted/50 p-2"><p className="font-semibold">{formatBrl(company.pipelineValue)}</p><p className="text-muted-foreground">pipeline</p></div></div></CardContent></Card>)}</div>}
       </FeatureAvailability>
     </div>
