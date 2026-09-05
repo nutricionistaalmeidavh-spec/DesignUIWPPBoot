@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ArrowRight, Bot, MessageSquareWarning, Target, Users } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bot, MessageCircleMore, MessageSquareWarning, Target, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -7,8 +7,10 @@ import { PageHeader } from "@/components/PageHeader";
 import { ErrorState } from "@/components/SectionState";
 import { StatusPill } from "@/components/StatusPill";
 import { useOverview } from "@/features/consumption/useOverview";
+import { useConversationList } from "@/features/conversations/useConversationList";
 import { getCrmRepository } from "@/features/crm/repository";
 import { useCrmRuntime } from "@/features/crm/runtime";
+import { formatDateTime } from "@/lib/format";
 
 export function buildAttentionItems(data: {
   awaitingHuman: number;
@@ -33,8 +35,24 @@ export function buildAttentionItems(data: {
   ].filter(Boolean) as Array<{ label: string; to: string }>;
 }
 
+export function buildRecentConversations<T extends { lastActivityAt: string }>(
+  items: readonly T[] | undefined,
+  limit = 4,
+): T[] {
+  return [...(items ?? [])]
+    .sort((left, right) => {
+      const leftTime = Date.parse(left.lastActivityAt);
+      const rightTime = Date.parse(right.lastActivityAt);
+      const safeLeft = Number.isFinite(leftTime) ? leftTime : 0;
+      const safeRight = Number.isFinite(rightTime) ? rightTime : 0;
+      return safeRight - safeLeft;
+    })
+    .slice(0, Math.max(0, limit));
+}
+
 export function OverviewRoute() {
   const overview = useOverview();
+  const conversations = useConversationList({});
   const crmRuntime = useCrmRuntime();
   const crmEnabled = crmRuntime.source !== "disabled";
   const crmRepository = getCrmRepository(crmRuntime.source === "http" ? "http" : "mock");
@@ -71,6 +89,8 @@ export function OverviewRoute() {
     awaitingHuman: data.conversationsByState.awaitingHuman,
     pendingInbound: data.pendingInbound,
   });
+  const conversationItems = conversations.data?.pages.flatMap((page) => page.items) ?? [];
+  const recentConversations = buildRecentConversations(conversationItems);
   const crmOpportunities = opportunities.data ?? [];
   const crmCampaigns = campaigns.data ?? [];
   const activePipeline = crmOpportunities
@@ -158,6 +178,62 @@ export function OverviewRoute() {
           </Card>
         ) : null}
       </div>
+
+      <Card className="shadow-sm">
+        <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Atendimento</p>
+            <CardTitle className="mt-1 text-base">Conversas recentes</CardTitle>
+          </div>
+          <Link to="/conversations/inbox" className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-primary hover:underline">
+            Ver todas as conversas
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {conversations.isLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-16" />)}
+            </div>
+          ) : conversations.isError ? (
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-dashed p-4 text-sm">
+              <span className="text-muted-foreground">Não foi possível carregar as conversas agora.</span>
+              <button className="shrink-0 font-medium text-primary hover:underline" onClick={() => conversations.refetch()} type="button">
+                Tentar novamente
+              </button>
+            </div>
+          ) : recentConversations.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
+              Nenhuma conversa recente.
+            </div>
+          ) : (
+            <div className="divide-y rounded-lg border">
+              {recentConversations.map((item) => (
+                <div key={item.leadPhone} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
+                      <MessageCircleMore className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{item.leadPhone}</p>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {item.leadIntent} · {item.leadQualification ?? "sem qualificação"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2 pl-12 sm:pl-0">
+                    {item.hasPendingInbound ? <StatusPill tone="info">mensagem recebida</StatusPill> : null}
+                    <StatusPill tone={item.state === "awaitingHuman" ? "warning" : item.state === "active" ? "success" : "neutral"}>
+                      {item.state === "awaitingHuman" ? "aguardando humano" : item.state === "active" ? "bot ativo" : "encerrada"}
+                    </StatusPill>
+                    <span className="hidden text-xs text-muted-foreground md:inline">{formatDateTime(item.lastActivityAt)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
