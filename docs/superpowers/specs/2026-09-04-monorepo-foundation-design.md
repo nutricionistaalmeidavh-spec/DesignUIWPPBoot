@@ -7,10 +7,12 @@ Consolidate the currently functional WhatsApp product into `DesignUIWPPBoot` wit
 ## Baselines
 
 - Server + bot runtime: `Marcoslima016/wpp_prospector_bot`, branch `feature/refinamento_bot`, commit `464e5dcb1cef198721e1db3c46cc48500ae02d0d`.
-- Panel: `Marcoslima016/wpp_prospector_bot_panel`, branch `main`, commit `f8ef396c0dca73e89618fa79922b1633577ecb90`.
+- Panel: `Marcoslima016/wpp_prospector_bot_panel`, branch `feature/leads_import_and_start_chat`, commit `03ac11773d9bc2c2d541dbdda8cf33d0db6bad76`.
 - Destination baseline: `nutricionistaalmeidavh-spec/DesignUIWPPBoot`, `main`, commit `7e41b1ba5f6af07bf841b994718b4c6497ad1517`.
 
 The `feature/refinamento_bot` branch is the correct server baseline because it contains the management API, conversation engine, WhatsApp Cloud API connectivity, persistence, consumption metrics, lead import/prospecting and the OpenSpec history. Older `main`/`develop` branches are not used as the migration source.
+
+The panel uses `feature/leads_import_and_start_chat` because it is aligned with the current server contract surface and includes the functional Leads/prospecting experience that is not present on the older panel `main` baseline.
 
 ## Architecture
 
@@ -37,7 +39,7 @@ DesignUIWPPBoot/
 
 The functional bot is already integrated into the current server codebase through `conversation-engine`, `whatsapp-connectivity`, `management` and shared persistence. It will **not** be physically split into a new `bot-core` package during this checkpoint because doing so would introduce unnecessary behavioral risk before the UI work. The first migration preserves that runtime intact under `apps/server`.
 
-`packages/contracts` is the only shared package extracted now. It contains a synchronized copy of the public DTO/Zod contract surface from `apps/server/src/management/interface/dto`. The panel will depend on `@wpp/contracts` instead of a sibling repository path.
+`packages/contracts` is the only shared package extracted now. It contains a synchronized copy of the public DTO/Zod contract surface from `apps/server/src/management/interface/dto`, including the small conversation-domain dependencies those DTOs import. The panel depends on `@wpp/contracts` instead of a sibling repository path.
 
 ## Data and request flow
 
@@ -85,7 +87,7 @@ npm run build
 
 ## UI boundary for this checkpoint
 
-No visual redesign is permitted in phases 0–8. The panel is migrated as-is except for the package import required to consume shared contracts. Phase 7 maps the current screens and API dependencies. Phase 8 documents UX problems and priorities. Actual visual/interaction changes begin only in a subsequent OpenSpec change.
+No visual redesign is permitted in phases 0–8. The panel is migrated as-is except for the package import required to consume shared contracts. The current route set includes Login, Conversas, Detalhe da conversa, Leads/Prospecção, Consumo and fallback. Phase 7 maps these screens and API dependencies. Phase 8 documents UX problems and priorities. Actual visual/interaction changes begin only in a subsequent OpenSpec change.
 
 ## Success criteria
 
