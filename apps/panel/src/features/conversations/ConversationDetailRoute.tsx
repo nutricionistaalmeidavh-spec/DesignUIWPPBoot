@@ -14,22 +14,30 @@ const STATE_LABEL: Record<string, string> = {
 
 export function ConversationDetailRoute() {
   const { leadPhone = "" } = useParams();
-  const decoded = decodeURIComponent(leadPhone);
-  const query = useConversationDetail(decoded);
+  return <ConversationDetailPanel leadPhone={decodeURIComponent(leadPhone)} showBackLink />;
+}
+
+export function ConversationDetailPanel({
+  leadPhone,
+  showBackLink = false,
+}: {
+  leadPhone: string;
+  showBackLink?: boolean;
+}) {
+  const query = useConversationDetail(leadPhone);
 
   if (query.isNotFound) {
     return (
       <div className="space-y-2">
         <h1 className="text-lg font-semibold">Conversa não encontrada</h1>
         <p className="text-sm text-muted-foreground">
-          Nenhuma conversa persistida para <code>{decoded}</code>.
+          Nenhuma conversa persistida para <code>{leadPhone}</code>.
         </p>
-        <Link
-          to="/conversations"
-          className="text-sm text-primary underline-offset-4 hover:underline"
-        >
-          Voltar para a listagem
-        </Link>
+        {showBackLink ? (
+          <Link to="/conversations" className="text-sm text-primary underline-offset-4 hover:underline">
+            Voltar para a listagem
+          </Link>
+        ) : null}
       </div>
     );
   }
@@ -61,17 +69,16 @@ export function ConversationDetailRoute() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Link
-          to="/conversations"
-          className="text-sm text-primary underline-offset-4 hover:underline"
-        >
-          ← Conversas
-        </Link>
+      <div className="flex flex-wrap items-center gap-3">
+        {showBackLink ? (
+          <Link to="/conversations" className="text-sm text-primary underline-offset-4 hover:underline">
+            ← Conversas
+          </Link>
+        ) : null}
         <h1 className="text-lg font-semibold">{detail.leadPhone}</h1>
         <Badge variant="secondary">{STATE_LABEL[detail.state] ?? detail.state}</Badge>
-        {detail.hasPendingInbound ? <Badge>inbound pendente</Badge> : null}
-        {detail.hasAbandonedInbound ? <Badge variant="outline">inbound abandonado</Badge> : null}
+        {detail.hasPendingInbound ? <Badge>mensagem recebida pendente</Badge> : null}
+        {detail.hasAbandonedInbound ? <Badge variant="outline">mensagem recebida abandonada</Badge> : null}
       </div>
 
       <dl className="grid gap-x-6 gap-y-2 rounded-lg border p-4 text-sm sm:grid-cols-2">
