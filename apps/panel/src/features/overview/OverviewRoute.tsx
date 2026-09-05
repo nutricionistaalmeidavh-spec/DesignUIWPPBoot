@@ -7,20 +7,25 @@ import { PageHeader } from "@/components/PageHeader";
 import { ErrorState } from "@/components/SectionState";
 import { StatusPill } from "@/components/StatusPill";
 import { useOverview } from "@/features/consumption/useOverview";
-import { crmRepository } from "@/features/crm/repository";
-import { isCrmPreviewEnabled } from "@/features/crm/preview";
+import { getCrmRepository } from "@/features/crm/repository";
+import { useCrmRuntime } from "@/features/crm/runtime";
 
 export function buildAttentionItems(data: {
   awaitingHuman: number;
   pendingInbound: number;
   failedProspecting?: number;
 }) {
+  const receivedMessages =
+    data.pendingInbound === 1
+      ? "1 mensagem recebida pendente"
+      : `${data.pendingInbound} mensagens recebidas pendentes`;
+
   return [
     data.awaitingHuman > 0
       ? { label: `${data.awaitingHuman} conversa(s) aguardando humano`, to: "/conversations/handoff" }
       : null,
     data.pendingInbound > 0
-      ? { label: `${data.pendingInbound} inbound(s) pendente(s)`, to: "/conversations/inbox" }
+      ? { label: receivedMessages, to: "/conversations/inbox" }
       : null,
     data.failedProspecting && data.failedProspecting > 0
       ? { label: `${data.failedProspecting} falha(s) de prospecção`, to: "/crm/leads" }
@@ -30,17 +35,19 @@ export function buildAttentionItems(data: {
 
 export function OverviewRoute() {
   const overview = useOverview();
-  const preview = isCrmPreviewEnabled();
+  const crmRuntime = useCrmRuntime();
+  const crmEnabled = crmRuntime.source !== "disabled";
+  const crmRepository = getCrmRepository(crmRuntime.source === "http" ? "http" : "mock");
   const opportunities = useQuery({
-    queryKey: ["crm-preview", "opportunities"],
+    queryKey: ["crm", crmRuntime.source, "opportunities"],
     queryFn: () => crmRepository.listOpportunities(),
-    enabled: preview,
+    enabled: crmEnabled && crmRuntime.modules.opportunities,
     staleTime: Infinity,
   });
   const campaigns = useQuery({
-    queryKey: ["crm-preview", "campaigns"],
+    queryKey: ["crm", crmRuntime.source, "campaigns"],
     queryFn: () => crmRepository.listCampaigns(),
-    enabled: preview,
+    enabled: crmEnabled && crmRuntime.modules.campaigns,
     staleTime: Infinity,
   });
 
@@ -64,11 +71,12 @@ export function OverviewRoute() {
     awaitingHuman: data.conversationsByState.awaitingHuman,
     pendingInbound: data.pendingInbound,
   });
-  const previewOpportunities = opportunities.data ?? [];
-  const previewCampaigns = campaigns.data ?? [];
-  const activePipeline = previewOpportunities
+  const crmOpportunities = opportunities.data ?? [];
+  const crmCampaigns = campaigns.data ?? [];
+  const activePipeline = crmOpportunities
     .filter((item) => item.stage !== "won" && item.stage !== "lost")
     .reduce((total, item) => total + item.estimatedValue, 0);
+  const showCommercial = crmRuntime.modules.opportunities || crmRuntime.modules.campaigns;
 
   return (
     <div className="space-y-7">
@@ -82,10 +90,10 @@ export function OverviewRoute() {
         <MetricCard icon={Bot} label="Conversas ativas" value={data.conversationsByState.active} helper="bot operando" />
         <MetricCard icon={MessageSquareWarning} label="Aguardando humano" value={data.conversationsByState.awaitingHuman} helper="prioridade operacional" />
         <MetricCard icon={Users} label="Leads" value={data.totalLeads} helper="base disponível" />
-        <MetricCard icon={AlertTriangle} label="Inbound pendente" value={data.pendingInbound} helper="novas respostas" />
+        <MetricCard icon={AlertTriangle} label="Mensagens recebidas" value={data.pendingInbound} helper="pendentes" />
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+      <div className={showCommercial ? "grid gap-5 xl:grid-cols-[1.15fr_0.85fr]" : "grid gap-5"}>
         <Card className="shadow-sm">
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <div>
@@ -99,7 +107,7 @@ export function OverviewRoute() {
           <CardContent className="space-y-2">
             {attention.length === 0 ? (
               <div className="rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
-                Nenhuma exceção operacional encontrada no overview atual.
+                Nenhuma prioridade pendente no momento.
               </div>
             ) : (
               attention.map((item) => (
@@ -112,44 +120,43 @@ export function OverviewRoute() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm">
-          <CardHeader>
-            <div className="flex items-center justify-between gap-3">
+        {showCommercial ? (
+          <Card className="shadow-sm">
+            <CardHeader>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Comercial</p>
                 <CardTitle className="mt-1 text-base">Pipeline</CardTitle>
               </div>
-              {preview ? <StatusPill tone="info">Preview</StatusPill> : null}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {preview ? (
+            </CardHeader>
+            <CardContent>
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-lg bg-muted/50 p-3">
-                    <p className="text-xs text-muted-foreground">Oportunidades</p>
-                    <p className="mt-1 text-2xl font-semibold">{previewOpportunities.length}</p>
+                {crmRuntime.modules.opportunities ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg bg-muted/50 p-3">
+                      <p className="text-xs text-muted-foreground">Oportunidades</p>
+                      <p className="mt-1 text-2xl font-semibold">{crmOpportunities.length}</p>
+                    </div>
+                    <div className="rounded-lg bg-muted/50 p-3">
+                      <p className="text-xs text-muted-foreground">Valor em aberto</p>
+                      <p className="mt-1 text-lg font-semibold">R$ {activePipeline.toLocaleString("pt-BR")}</p>
+                    </div>
                   </div>
-                  <div className="rounded-lg bg-muted/50 p-3">
-                    <p className="text-xs text-muted-foreground">Valor em aberto</p>
-                    <p className="mt-1 text-lg font-semibold">R$ {activePipeline.toLocaleString("pt-BR")}</p>
+                ) : null}
+                {crmRuntime.modules.campaigns ? (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Campanhas ativas</span>
+                    <span className="font-medium">{crmCampaigns.filter((item) => item.status === "running").length}</span>
                   </div>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Campanhas ativas</span>
-                  <span className="font-medium">{previewCampaigns.filter((item) => item.status === "running").length}</span>
-                </div>
-                <Link to="/crm/pipeline" className="inline-flex h-8 w-full items-center justify-center gap-2 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-sm hover:bg-accent hover:text-accent-foreground">
-                  <Target className="h-4 w-4" />Abrir pipeline
-                </Link>
+                ) : null}
+                {crmRuntime.modules.opportunities ? (
+                  <Link to="/crm/pipeline" className="inline-flex h-8 w-full items-center justify-center gap-2 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-sm hover:bg-accent hover:text-accent-foreground">
+                    <Target className="h-4 w-4" />Abrir pipeline
+                  </Link>
+                ) : null}
               </div>
-            ) : (
-              <p className="text-sm leading-6 text-muted-foreground">
-                Pipeline, oportunidades e campanhas aparecem aqui automaticamente quando o backend expuser essas capabilities.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
     </div>
   );
