@@ -148,11 +148,11 @@
 - [x] Confirm the source repositories were not modified.
 - [x] Run the complete root validation pipeline on a clean GitHub Actions runner.
 - [x] Inspect the migration for accidental credentials, generated databases and visual redesign changes.
-- [ ] Open a PR from `integration/phases-0-8` to `main`; do not merge automatically.
+- [x] Open PR #1 from `integration/phases-0-8` to `main`; do not merge automatically.
 
 ## Verification snapshot
 
-The bootstrap validation completed successfully on GitHub Actions before the migrated snapshot was committed:
+The bootstrap validation and the final monorepo CI completed successfully on clean GitHub Actions runners:
 
 - server lint/typecheck/build: passed;
 - panel lint/typecheck/build: passed;
