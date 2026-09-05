@@ -35,14 +35,14 @@ export function buildAttentionItems(data: {
   ].filter(Boolean) as Array<{ label: string; to: string }>;
 }
 
-export function buildRecentConversations<T extends { lastActivityAt: string }>(
+export function buildRecentConversations<T extends { lastActivityAt: string | null }>(
   items: readonly T[] | undefined,
   limit = 4,
 ): T[] {
   return [...(items ?? [])]
     .sort((left, right) => {
-      const leftTime = Date.parse(left.lastActivityAt);
-      const rightTime = Date.parse(right.lastActivityAt);
+      const leftTime = Date.parse(left.lastActivityAt ?? "");
+      const rightTime = Date.parse(right.lastActivityAt ?? "");
       const safeLeft = Number.isFinite(leftTime) ? leftTime : 0;
       const safeRight = Number.isFinite(rightTime) ? rightTime : 0;
       return safeRight - safeLeft;
@@ -221,12 +221,12 @@ export function OverviewRoute() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-2 pl-12 sm:pl-0">
+                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                     {item.hasPendingInbound ? <StatusPill tone="info">mensagem recebida</StatusPill> : null}
                     <StatusPill tone={item.state === "awaitingHuman" ? "warning" : item.state === "active" ? "success" : "neutral"}>
                       {item.state === "awaitingHuman" ? "aguardando humano" : item.state === "active" ? "bot ativo" : "encerrada"}
                     </StatusPill>
-                    <span className="hidden text-xs text-muted-foreground md:inline">{formatDateTime(item.lastActivityAt)}</span>
+                    {item.lastActivityAt ? <span className="hidden text-xs text-muted-foreground md:inline">{formatDateTime(item.lastActivityAt)}</span> : null}
                   </div>
                 </div>
               ))}
