@@ -1,0 +1,78 @@
+name: Capture CRM UI
+
+on:
+  push:
+    branches:
+      - tmp/render-crm-ui
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Chromium for Playwright
+        run: npx -y playwright@1.55.0 install --with-deps chromium
+
+      - name: Start minimal API mock
+        run: |
+          cat > /tmp/mock-api.mjs <<'EOF'
+          import http from 'node:http';
+          const overview = {
+            conversationsByState: { active: 18, ended: 7, awaitingHuman: 4 },
+            totalLeads: 126,
+            pendingInbound: 4,
+          };
+          const server = http.createServer((req, res) => {
+            res.setHeader('content-type', 'application/json; charset=utf-8');
+            if (req.url?.startsWith('/admin/api/stats/overview')) {
+              res.statusCode = 200;
+              res.end(JSON.stringify(overview));
+              return;
+            }
+            if (req.url?.startsWith('/admin/api/capabilities')) {
+              res.statusCode = 200;
+              res.end(JSON.stringify({ conversationActions: true, prospecting: true }));
+              return;
+            }
+            res.statusCode = 404;
+            res.end(JSON.stringify({ error: 'not mocked for visual capture' }));
+          });
+          server.listen(3000, '127.0.0.1');
+          EOF
+          node /tmp/mock-api.mjs > /tmp/mock-api.log 2>&1 &
+
+      - name: Start current panel branch
+        run: |
+          npm --workspace apps/panel run dev -- --host 127.0.0.1 > /tmp/panel.log 2>&1 &
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:5173/admin/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/panel.log
+          exit 1
+
+      - name: Capture real rendered screens
+        run: |
+          mkdir -p ui-captures
+          npx -y playwright@1.55.0 screenshot --browser chromium --viewport-size "1440,1000" --full-page --wait-for-timeout 2500 http://127.0.0.1:5173/admin/overview ui-captures/overview.png
+          npx -y playwright@1.55.0 screenshot --browser chromium --viewport-size "1440,1000" --full-page --wait-for-timeout 2500 http://127.0.0.1:5173/admin/crm/pipeline ui-captures/crm-pipeline.png
+          npx -y playwright@1.55.0 screenshot --browser chromium --viewport-size "1440,1000" --full-page --wait-for-timeout 2500 http://127.0.0.1:5173/admin/crm/leads ui-captures/leads.png
+
+      - name: Upload captures
+        uses: actions/upload-artifact@v4
+        with:
+          name: crm-ui-current
+          path: ui-captures/*.png
+          if-no-files-found: error
