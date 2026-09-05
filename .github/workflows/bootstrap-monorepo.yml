@@ -7,6 +7,7 @@ on:
       - integration/phases-0-8
     paths:
       - scripts/bootstrap-monorepo.sh
+      - scripts/patch-bootstrap-contracts.py
       - .github/workflows/bootstrap-monorepo.yml
 
 permissions:
@@ -26,8 +27,8 @@ jobs:
         with:
           node-version: 24
 
-      - name: Normalize npm workspace dependency syntax
-        run: sed -i "s/'workspace:\\*'/'*'/g" scripts/bootstrap-monorepo.sh
+      - name: Patch bootstrap for portable shared contracts
+        run: python3 scripts/patch-bootstrap-contracts.py
 
       - name: Assemble and verify monorepo
         run: bash scripts/bootstrap-monorepo.sh
