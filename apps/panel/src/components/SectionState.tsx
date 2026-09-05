@@ -57,9 +57,9 @@ export function IntegrationPendingState({ feature }: { feature: string }) {
         <span className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-accent text-accent-foreground">
           <PlugZap className="h-5 w-5" />
         </span>
-        <h2 className="text-base font-semibold">{feature} está pronta para integração</h2>
+        <h2 className="text-base font-semibold">{feature} indisponível</h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          A interface e os contratos de frontend estão definidos. Este módulo será ativado quando o backend expuser a capability correspondente.
+          Este recurso não está disponível nesta instalação.
         </p>
       </div>
     </div>
