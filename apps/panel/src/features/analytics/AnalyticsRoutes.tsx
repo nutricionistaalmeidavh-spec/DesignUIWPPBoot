@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart3, CircleDollarSign, TrendingUp } from "lucide-react";
 import { FeatureAvailability } from "@/components/FeatureAvailability";
@@ -5,19 +6,34 @@ import { PageHeader } from "@/components/PageHeader";
 import { StatusPill } from "@/components/StatusPill";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { crmRepository } from "@/features/crm/repository";
-import { isCrmPreviewEnabled } from "@/features/crm/preview";
+import { getCrmRepository } from "@/features/crm/repository";
+import { useCrmRuntime } from "@/features/crm/runtime";
 import { OPPORTUNITY_STAGES, OPPORTUNITY_STAGE_LABEL } from "@/features/crm/types";
 
+function useAnalyticsCrm() {
+  const runtime = useCrmRuntime();
+  const repository = useMemo(
+    () => getCrmRepository(runtime.source === "http" ? "http" : "mock"),
+    [runtime.source],
+  );
+  return { runtime, repository };
+}
+
 export function FunnelRoute() {
-  const preview = isCrmPreviewEnabled();
-  const query = useQuery({ queryKey: ["crm-preview", "opportunities"], queryFn: () => crmRepository.listOpportunities(), enabled: preview, staleTime: Infinity });
+  const { runtime, repository } = useAnalyticsCrm();
+  const supported = runtime.source !== "disabled" && runtime.modules.opportunities;
+  const query = useQuery({
+    queryKey: ["crm", runtime.source, "analytics", "opportunities"],
+    queryFn: () => repository.listOpportunities(),
+    enabled: supported,
+    staleTime: Infinity,
+  });
   const total = query.data?.length ?? 0;
 
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Analytics" title="Funil" description="Volume e passagem das oportunidades entre etapas comerciais." />
-      <FeatureAvailability feature="Analytics de funil" supported={false} preview={preview}>
+      <FeatureAvailability feature="Analytics de funil" supported={supported}>
         {query.isLoading ? <Skeleton className="h-80" /> : (
           <div className="surface-panel p-5">
             <div className="space-y-3">
@@ -41,8 +57,14 @@ export function FunnelRoute() {
 }
 
 export function ConversionsRoute() {
-  const preview = isCrmPreviewEnabled();
-  const query = useQuery({ queryKey: ["crm-preview", "opportunities"], queryFn: () => crmRepository.listOpportunities(), enabled: preview, staleTime: Infinity });
+  const { runtime, repository } = useAnalyticsCrm();
+  const supported = runtime.source !== "disabled" && runtime.modules.opportunities;
+  const query = useQuery({
+    queryKey: ["crm", runtime.source, "analytics", "opportunities"],
+    queryFn: () => repository.listOpportunities(),
+    enabled: supported,
+    staleTime: Infinity,
+  });
   const items = query.data ?? [];
   const won = items.filter((item) => item.stage === "won").length;
   const qualified = items.filter((item) => ["qualified", "meeting", "proposal", "negotiation", "won"].includes(item.stage)).length;
@@ -50,11 +72,11 @@ export function ConversionsRoute() {
 
   return (
     <div className="space-y-6">
-      <PageHeader eyebrow="Analytics" title="Conversões" description="Indicadores comerciais que serão ligados aos contratos de oportunidade." />
-      <FeatureAvailability feature="Analytics de conversão" supported={false} preview={preview}>
+      <PageHeader eyebrow="Analytics" title="Conversões" description="Indicadores de avanço das oportunidades ao longo do processo comercial." />
+      <FeatureAvailability feature="Analytics de conversão" supported={supported}>
         {query.isLoading ? <Skeleton className="h-64" /> : (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <ConversionCard icon={TrendingUp} label="Oportunidades" value={items.length} helper="base do preview" />
+            <ConversionCard icon={TrendingUp} label="Oportunidades" value={items.length} helper="base atual" />
             <ConversionCard icon={BarChart3} label="Qualificadas+" value={qualified} helper={percent(qualified, items.length)} />
             <ConversionCard icon={CircleDollarSign} label="Proposta+" value={proposal} helper={percent(proposal, items.length)} />
             <ConversionCard icon={TrendingUp} label="Ganhos" value={won} helper={percent(won, items.length)} />
@@ -66,12 +88,19 @@ export function ConversionsRoute() {
 }
 
 export function CampaignAnalyticsRoute() {
-  const preview = isCrmPreviewEnabled();
-  const query = useQuery({ queryKey: ["crm-preview", "campaigns"], queryFn: () => crmRepository.listCampaigns(), enabled: preview, staleTime: Infinity });
+  const { runtime, repository } = useAnalyticsCrm();
+  const supported = runtime.source !== "disabled" && runtime.modules.campaigns;
+  const query = useQuery({
+    queryKey: ["crm", runtime.source, "analytics", "campaigns"],
+    queryFn: () => repository.listCampaigns(),
+    enabled: supported,
+    staleTime: Infinity,
+  });
+
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Analytics" title="Performance de campanhas" description="Comparativo de resposta, qualificação e oportunidades por campanha." />
-      <FeatureAvailability feature="Analytics de campanhas" supported={false} preview={preview}>
+      <FeatureAvailability feature="Analytics de campanhas" supported={supported}>
         {query.isLoading ? <Skeleton className="h-72" /> : (
           <div className="surface-panel divide-y overflow-hidden">
             {(query.data ?? []).map((campaign) => (
