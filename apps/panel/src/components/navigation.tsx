@@ -40,6 +40,7 @@ export function getNavigationGroups(crm: CrmModules): NavGroup[] {
       label: "CRM",
       items: compact([
         enabled(crm.opportunities, { to: "/crm/pipeline", label: "Pipeline", icon: KanbanSquare }),
+        { to: "/conversations/inbox", label: "Conversas", icon: Inbox },
         enabled(crm.opportunities, { to: "/crm/opportunities", label: "Oportunidades", icon: Target }),
         { to: "/crm/leads", label: "Leads", icon: UserRoundSearch },
         enabled(crm.companies, { to: "/crm/companies", label: "Empresas", icon: Building2 }),
@@ -53,11 +54,8 @@ export function getNavigationGroups(crm: CrmModules): NavGroup[] {
       ]),
     },
     {
-      label: "Conversas",
-      items: [
-        { to: "/conversations/inbox", label: "Inbox", icon: Inbox },
-        { to: "/conversations/handoff", label: "Aguardando humano", icon: MessageSquareWarning },
-      ],
+      label: "Atendimento",
+      items: [{ to: "/conversations/handoff", label: "Aguardando humano", icon: MessageSquareWarning }],
     },
     {
       label: "Analytics",
