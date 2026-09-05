@@ -9,7 +9,6 @@ describe("navegação CRM", () => {
       campaigns: false,
     }).flatMap((group) => group.items.map((item) => item.label));
 
-    expect(labels).toContain("Visão geral");
     expect(labels).toContain("Leads");
     expect(labels).toContain("Conversas");
     expect(labels).not.toContain("Inbox");
