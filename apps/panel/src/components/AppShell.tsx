@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { LogOut, Menu, X } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useSession } from "@/auth/session";
@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ContractMismatchBanner } from "@/components/ContractMismatchBanner";
 import { cn } from "@/lib/utils";
 import { getNavigationGroups, PRODUCT_MARK } from "@/components/navigation";
-import { isCrmPreviewEnabled } from "@/features/crm/preview";
+import { useCrmRuntime } from "@/features/crm/runtime";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { logout } = useSession();
@@ -14,9 +14,56 @@ export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const [loggingOut, setLoggingOut] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const preview = isCrmPreviewEnabled();
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const crmRuntime = useCrmRuntime();
   const ProductMark = PRODUCT_MARK;
-  const groups = getNavigationGroups(preview);
+  const groups = getNavigationGroups(crmRuntime.modules);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const drawer = drawerRef.current;
+    const animationFrame = window.requestAnimationFrame(() => {
+      drawer?.querySelector<HTMLElement>("[data-mobile-close]")?.focus();
+    });
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMobileOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !drawer) return;
+
+      const focusable = Array.from(
+        drawer.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute("hidden"));
+      if (focusable.length === 0) return;
+
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      menuButtonRef.current?.focus();
+    };
+  }, [mobileOpen]);
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -72,11 +119,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                   >
                     <Icon className="h-4 w-4 shrink-0" />
                     <span className="truncate">{item.label}</span>
-                    {item.preview ? (
-                      <span className="ml-auto rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        preview
-                      </span>
-                    ) : null}
                   </NavLink>
                 );
               })}
@@ -113,8 +155,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             aria-label="Fechar menu"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="relative h-full w-[84vw] max-w-72 border-r shadow-xl">
+          <aside
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu de navegação"
+            className="relative h-full w-[84vw] max-w-72 border-r shadow-xl"
+          >
             <button
+              data-mobile-close
               className="absolute right-3 top-3 z-10 rounded-md p-2 text-muted-foreground hover:bg-muted"
               aria-label="Fechar navegação"
               onClick={() => setMobileOpen(false)}
@@ -128,7 +177,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="lg:pl-64">
         <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur lg:hidden">
-          <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} aria-label="Abrir navegação">
+          <Button
+            ref={menuButtonRef}
+            variant="ghost"
+            size="icon"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Abrir navegação"
+          >
             <Menu className="h-5 w-5" />
           </Button>
           <span className="text-sm font-semibold">{currentLabel ?? "WPP CRM"}</span>
