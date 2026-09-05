@@ -1,6 +1,5 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  BarChart3,
   Bot,
   Building2,
   CircleDollarSign,
@@ -12,16 +11,14 @@ import {
   MessageSquareWarning,
   Settings,
   Target,
-  TrendingUp,
   UserRoundSearch,
-  UsersRound,
 } from "lucide-react";
+import type { CrmModules } from "@/features/crm/runtime";
 
 export interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
-  preview?: boolean;
 }
 
 export interface NavGroup {
@@ -29,8 +26,9 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-export function getNavigationGroups(previewEnabled: boolean): NavGroup[] {
-  const future = <T extends NavItem>(item: T): T | null => (previewEnabled ? item : null);
+export function getNavigationGroups(crm: CrmModules): NavGroup[] {
+  const enabled = <T extends NavItem>(condition: boolean, item: T): T | null =>
+    condition ? item : null;
   const compact = (items: Array<NavItem | null>): NavItem[] => items.filter(Boolean) as NavItem[];
 
   return [
@@ -41,16 +39,16 @@ export function getNavigationGroups(previewEnabled: boolean): NavGroup[] {
     {
       label: "CRM",
       items: compact([
-        future({ to: "/crm/pipeline", label: "Pipeline", icon: KanbanSquare, preview: true }),
-        future({ to: "/crm/opportunities", label: "Oportunidades", icon: Target, preview: true }),
+        enabled(crm.opportunities, { to: "/crm/pipeline", label: "Pipeline", icon: KanbanSquare }),
+        enabled(crm.opportunities, { to: "/crm/opportunities", label: "Oportunidades", icon: Target }),
         { to: "/crm/leads", label: "Leads", icon: UserRoundSearch },
-        future({ to: "/crm/companies", label: "Empresas", icon: Building2, preview: true }),
+        enabled(crm.companies, { to: "/crm/companies", label: "Empresas", icon: Building2 }),
       ]),
     },
     {
       label: "Prospecção",
       items: compact([
-        future({ to: "/prospecting/campaigns", label: "Campanhas", icon: Megaphone, preview: true }),
+        enabled(crm.campaigns, { to: "/prospecting/campaigns", label: "Campanhas", icon: Megaphone }),
         { to: "/prospecting/imports", label: "Importações", icon: FileUp },
       ]),
     },
@@ -63,12 +61,7 @@ export function getNavigationGroups(previewEnabled: boolean): NavGroup[] {
     },
     {
       label: "Analytics",
-      items: compact([
-        future({ to: "/analytics/funnel", label: "Funil", icon: TrendingUp, preview: true }),
-        future({ to: "/analytics/campaigns", label: "Campanhas", icon: BarChart3, preview: true }),
-        future({ to: "/analytics/conversions", label: "Conversões", icon: UsersRound, preview: true }),
-        { to: "/analytics/costs", label: "Custos", icon: CircleDollarSign },
-      ]),
+      items: [{ to: "/analytics/costs", label: "Custos", icon: CircleDollarSign }],
     },
     {
       label: "",
