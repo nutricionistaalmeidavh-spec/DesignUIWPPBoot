@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { conversationStateSchema, leadIntentSchema } from "@/api/contracts";
 import { formatDateTime } from "@/lib/format";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,8 +31,14 @@ const STATE_LABEL: Record<string, string> = {
 export function ConversationsRoute() {
   const navigate = useNavigate();
   const [filters, setFilters] = useState<ConversationFilters>({});
+  const [phone, setPhone] = useState("");
+  const debouncedPhone = useDebouncedValue(phone, 300);
+  const queryFilters = useMemo<ConversationFilters>(
+    () => ({ ...filters, phone: debouncedPhone || undefined }),
+    [debouncedPhone, filters],
+  );
 
-  const query = useConversationList(filters);
+  const query = useConversationList(queryFilters);
   const items = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
 
   function patch(next: Partial<ConversationFilters>) {
@@ -87,8 +94,8 @@ export function ConversationsRoute() {
           <Label htmlFor="f-phone">Telefone contém</Label>
           <Input
             id="f-phone"
-            value={filters.phone ?? ""}
-            onChange={(event) => patch({ phone: event.target.value })}
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
             placeholder="5511…"
           />
         </div>
@@ -148,7 +155,7 @@ export function ConversationsRoute() {
                 <TableHead>Qualificação</TableHead>
                 <TableHead className="text-right">Turnos</TableHead>
                 <TableHead>Última atividade</TableHead>
-                <TableHead>Inbound</TableHead>
+                <TableHead>Mensagens recebidas</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
